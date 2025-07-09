@@ -785,8 +785,9 @@ class rcube_imap extends rcube_storage
                     $this->set_folder_stats($folder, 'maxuid', $index->max());
                 }
             }
-        } else {
-            if ($mode == 'UNSEEN') {
+        }
+        else {
+            if ($mode == 'UNSEEN' && stristr($folder, "draft") == false) {      // Unread count acquisition (only for folders other than drafts)
                 $count = $this->conn->countUnseen($folder);
             } else {
                 $count = $this->conn->countMessages($folder);
