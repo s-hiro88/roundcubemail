@@ -42,7 +42,7 @@ class rcube_utils
      */
     public static function explode($separator, $string)
     {
-        if (strpos($string, $separator) !== false) {
+        if (str_contains($string, $separator)) {
             return explode($separator, $string);
         }
 
@@ -436,7 +436,7 @@ class rcube_utils
         }
 
         // Incomplete style expression
-        if (strpos($source, '{') === false) {
+        if (!str_contains($source, '{')) {
             return '/* invalid! */';
         }
 
@@ -635,6 +635,8 @@ class rcube_utils
 
             $value_length = $i - $colon_pos - ($s ? 1 : 0);
             $value = trim(substr($style, $colon_pos + 1, $value_length));
+            // Remove "orfaned" semicolons (#9948)
+            $name = ltrim($name, "; \t\r\n");
 
             if (strlen($name) && !preg_match('/[^a-z-]/', $name) && strlen($value) && $value !== ';') {
                 $result[] = [$name, $value];
@@ -819,7 +821,7 @@ class rcube_utils
         // %s - domain name after the '@' from e-mail address provided at login screen.
         //      Returns FALSE if an invalid email is provided
         $s = '';
-        if (strpos($name, '%s') !== false) {
+        if (str_contains($name, '%s')) {
             $user_email = self::idn_to_ascii(self::get_input_value('_user', self::INPUT_POST));
             $matches = preg_match('/(.*)@([a-z0-9\.\-\[\]\:]+)/i', $user_email, $s);
             if ($matches < 1 || filter_var($s[1] . '@' . $s[2], \FILTER_VALIDATE_EMAIL) === false) {
@@ -1041,8 +1043,8 @@ class rcube_utils
     /**
      * Improved equivalent to strtotime()
      *
-     * @param string       $date     Date string
-     * @param DateTimeZone $timezone Timezone to use for DateTime object
+     * @param string        $date     Date string
+     * @param \DateTimeZone $timezone Timezone to use for DateTime object
      *
      * @return int Unix timestamp
      */
@@ -1077,14 +1079,14 @@ class rcube_utils
     /**
      * Date parsing function that turns the given value into a DateTime object
      *
-     * @param DateTime|string $date     A date
-     * @param DateTimeZone    $timezone Timezone to use for DateTime object
+     * @param \DateTime|string $date     A date
+     * @param \DateTimeZone    $timezone Timezone to use for DateTime object
      *
-     * @return DateTime|false DateTime object or False on failure
+     * @return \DateTime|false DateTime object or False on failure
      */
     public static function anytodatetime($date, $timezone = null)
     {
-        if ($date instanceof DateTime) {
+        if ($date instanceof \DateTime) {
             return $date;
         }
 
@@ -1095,8 +1097,8 @@ class rcube_utils
         if (!empty($date)) {
             try {
                 $_date = preg_match('/^[0-9]+$/', $date) ? "@{$date}" : $date;
-                $dt = $timezone ? new DateTime($_date, $timezone) : new DateTime($_date);
-            } catch (Exception $e) {
+                $dt = $timezone ? new \DateTime($_date, $timezone) : new \DateTime($_date);
+            } catch (\Exception $e) {
                 // ignore
             }
         }
@@ -1104,11 +1106,11 @@ class rcube_utils
         // try our advanced strtotime() method
         if (!$dt && ($timestamp = self::strtotime($date, $timezone))) {
             try {
-                $dt = new DateTime('@' . $timestamp);
+                $dt = new \DateTime('@' . $timestamp);
                 if ($timezone) {
                     $dt->setTimezone($timezone);
                 }
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 // ignore
             }
         }
@@ -1186,9 +1188,9 @@ class rcube_utils
         if (count($format_items) == 3 && count($date_items) == 3) {
             if ($format_items[0] == 'Y') {
                 $date = sprintf($iso_format, $date_items[0], $date_items[1], $date_items[2]);
-            } elseif (strpos('dj', $format_items[0]) !== false) {
+            } elseif (str_contains('dj', $format_items[0])) {
                 $date = sprintf($iso_format, $date_items[2], $date_items[1], $date_items[0]);
-            } elseif (strpos('mn', $format_items[0]) !== false) {
+            } elseif (str_contains('mn', $format_items[0])) {
                 $date = sprintf($iso_format, $date_items[2], $date_items[0], $date_items[1]);
             }
         }
@@ -1596,15 +1598,15 @@ class rcube_utils
             $format = 'd-M-Y H:i:s O';
         }
 
-        if (strpos($format, 'u') !== false) {
+        if (str_contains($format, 'u')) {
             $dt = number_format(microtime(true), 6, '.', '');
 
             try {
                 $date = date_create_from_format('U.u', $dt);
-                $date->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                $date->setTimezone(new \DateTimeZone(date_default_timezone_get()));
 
                 return $date->format($format);
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 // ignore, fallback to date()
             }
         }
@@ -1810,15 +1812,15 @@ class rcube_utils
         $remote_port = array_key_exists('remote_port', $options) ? $options['remote_port'] : ($_SERVER['REMOTE_PORT'] ?? null);
         $local_addr = array_key_exists('local_addr', $options) ? $options['local_addr'] : ($_SERVER['SERVER_ADDR'] ?? null);
         $local_port = array_key_exists('local_port', $options) ? $options['local_port'] : ($_SERVER['SERVER_PORT'] ?? null);
-        $ip_version = strpos($remote_addr, ':') === false ? 4 : 6;
+        $ip_version = !str_contains($remote_addr, ':') ? 4 : 6;
 
         // Text based PROXY protocol
         if ($version == 1) {
             // PROXY protocol does not support dual IPv6+IPv4 type addresses, e.g. ::127.0.0.1
-            if ($ip_version === 6 && strpos($remote_addr, '.') !== false) {
+            if ($ip_version === 6 && str_contains($remote_addr, '.')) {
                 $remote_addr = inet_ntop(inet_pton($remote_addr));
             }
-            if ($ip_version === 6 && strpos($local_addr, '.') !== false) {
+            if ($ip_version === 6 && str_contains($local_addr, '.')) {
                 $local_addr = inet_ntop(inet_pton($local_addr));
             }
 

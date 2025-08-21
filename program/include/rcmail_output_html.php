@@ -175,7 +175,7 @@ class rcmail_output_html extends rcmail_output
      * @param bool   $addtojs True if this property should be added
      *                        to client environment
      */
-    #[Override]
+    #[\Override]
     public function set_env($name, $value, $addtojs = true)
     {
         $this->env[$name] = $value;
@@ -268,7 +268,7 @@ class rcmail_output_html extends rcmail_output
     /**
      * Getter for the current skin path property
      */
-    #[Override]
+    #[\Override]
     public function get_skin_path()
     {
         return $this->skin_paths[0];
@@ -312,7 +312,7 @@ class rcmail_output_html extends rcmail_output
     {
         // Sanity check to prevent from path traversal vulnerability (#1490620)
         // @phpstan-ignore-next-line
-        if (!is_string($skin) || strpos($skin, '/') !== false || strpos($skin, '\\') !== false) {
+        if (!is_string($skin) || str_contains($skin, '/') || str_contains($skin, '\\')) {
             rcube::raise_error('Invalid skin name', true);
             return false;
         }
@@ -489,10 +489,10 @@ class rcmail_output_html extends rcmail_output
      * @param string $cmd     Method to call
      * @param mixed  ...$args Method arguments
      */
-    #[Override]
+    #[\Override]
     public function command($cmd, ...$args)
     {
-        if (strpos($cmd, 'plugin.') !== false) {
+        if (str_contains($cmd, 'plugin.')) {
             $this->js_commands[] = ['triggerEvent', $cmd, $args[0]];
         } else {
             array_unshift($args, $cmd);
@@ -506,7 +506,7 @@ class rcmail_output_html extends rcmail_output
      *
      * @param mixed ...$args Labels (an array of strings, or many string arguments)
      */
-    #[Override]
+    #[\Override]
     public function add_label(...$args)
     {
         if (count($args) == 1 && is_array($args[0])) {
@@ -529,7 +529,7 @@ class rcmail_output_html extends rcmail_output
      *
      * @uses self::command()
      */
-    #[Override]
+    #[\Override]
     public function show_message($message, $type = 'notice', $vars = null, $override = true, $timeout = 0)
     {
         if ($override || !$this->message) {
@@ -553,7 +553,7 @@ class rcmail_output_html extends rcmail_output
      *
      * @param bool $all Reset all env variables (including internal)
      */
-    #[Override]
+    #[\Override]
     public function reset($all = false)
     {
         $framed = $this->framed;
@@ -610,7 +610,7 @@ class rcmail_output_html extends rcmail_output
      * @param int   $delay  Delay in seconds
      * @param bool  $secure Redirect to secure location (see rcmail::url())
      */
-    #[Override]
+    #[\Override]
     public function redirect($p = [], $delay = 1, $secure = false)
     {
         if (!empty($this->env['extwin']) && !(is_string($p) && preg_match('#^https?://#', $p))) {
@@ -633,7 +633,7 @@ class rcmail_output_html extends rcmail_output
      * @param string $templ Template name
      * @param bool   $exit  True if script should terminate (default)
      */
-    #[Override]
+    #[\Override]
     public function send($templ = null, $exit = true)
     {
         if ($templ != 'iframe') {
@@ -760,7 +760,7 @@ class rcmail_output_html extends rcmail_output
         $path = false;
         foreach ($this->skin_paths as $skin_path) {
             // when requesting a plugin template ignore global skin path(s)
-            if ($plugin && strpos($skin_path, $this->app->plugins->url) === false) {
+            if ($plugin && !str_contains($skin_path, $this->app->plugins->url)) {
                 continue;
             }
 
@@ -928,7 +928,7 @@ class rcmail_output_html extends rcmail_output
      * @param int    $code    Error code
      * @param string $message Error message
      */
-    #[Override]
+    #[\Override]
     public function raise_error($code, $message)
     {
         $args = [
@@ -1074,7 +1074,7 @@ class rcmail_output_html extends rcmail_output
      */
     protected function resource_location($location)
     {
-        if (strpos($location, '://') === false) {
+        if (!str_contains($location, '://')) {
             $location = ltrim($location, '/');
             $prefix = '';
 

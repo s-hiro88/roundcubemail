@@ -28,7 +28,7 @@ class rcmail_action_mail_autocomplete extends rcmail_action
      *
      * @param array $args Arguments from the previous step(s)
      */
-    #[Override]
+    #[\Override]
     public function run($args = [])
     {
         $rcmail = rcmail::get_instance();
@@ -68,7 +68,7 @@ class rcmail_action_mail_autocomplete extends rcmail_action
                             $contact = format_email_recipient($email, $name);
 
                             // skip entries that don't match
-                            if ($email_cnt > 1 && strpos(mb_strtolower($contact), $search_lc) === false) {
+                            if ($email_cnt > 1 && !str_contains(mb_strtolower($contact), $search_lc)) {
                                 continue;
                             }
 

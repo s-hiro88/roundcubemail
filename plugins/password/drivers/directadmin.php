@@ -39,7 +39,7 @@ class rcube_directadmin_password
         $da_host = $rcmail->config->get('password_directadmin_host');
         $da_port = $rcmail->config->get('password_directadmin_port');
 
-        if (strpos($da_user, '@') === false) {
+        if (!str_contains($da_user, '@')) {
             return ['code' => PASSWORD_ERROR, 'message' => 'Change the SYSTEM user password through control panel!'];
         }
 
@@ -50,7 +50,7 @@ class rcube_directadmin_password
             $da_port = 2222;
         }
 
-        if (strpos($da_host, '://') === false) {
+        if (!str_contains($da_host, '://')) {
             $da_host = 'https://' . $da_host;
         }
 
@@ -75,7 +75,7 @@ class rcube_directadmin_password
             $body = preg_replace_callback('/&#([0-9]{2})/', static function ($val) { return chr($val[1]); }, $body);
 
             $response = Query::parse($body);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             rcube::raise_error("Password plugin: Error fetching {$url} : {$e->getMessage()}", true);
             return PASSWORD_ERROR;
         }

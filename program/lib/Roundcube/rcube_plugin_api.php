@@ -344,7 +344,7 @@ class rcube_plugin_api
                     }
                 }
 
-                if (!empty($json['name']) && is_string($json['name']) && strpos($json['name'], '/') !== false) {
+                if (!empty($json['name']) && is_string($json['name']) && str_contains($json['name'], '/')) {
                     [$info['vendor'], $info['name']] = explode('/', $json['name'], 2);
                 }
 
@@ -382,9 +382,9 @@ class rcube_plugin_api
         if (empty($info)) {
             $package = INSTALL_PATH . "/plugins/{$plugin_name}/package.xml";
             if (is_readable($package) && ($file = file_get_contents($package))) {
-                $doc = new DOMDocument();
+                $doc = new \DOMDocument();
                 $doc->loadXML($file);
-                $xpath = new DOMXPath($doc);
+                $xpath = new \DOMXPath($doc);
                 $xpath->registerNamespace('rc', 'http://pear.php.net/dtd/package-2.0');
 
                 // XPaths of plugin metadata elements
@@ -671,7 +671,7 @@ class rcube_plugin_api
             if ($fn[0] != '/' && !preg_match('|^https?://|i', $fn)) {
                 $rcube = rcube::get_instance();
                 $devel_mode = $rcube->config->get('devel_mode');
-                $dir = unslashify(RCUBE_INSTALL_PATH) . (strpos($fn, 'plugins/') === false ? '/plugins' : '');
+                $dir = unslashify(RCUBE_INSTALL_PATH) . (!str_contains($fn, 'plugins/') ? '/plugins' : '');
 
                 // Prefer .less files in devel_mode (assume less.js is loaded)
                 if ($devel_mode) {

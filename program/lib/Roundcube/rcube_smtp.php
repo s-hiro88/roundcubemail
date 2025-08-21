@@ -110,7 +110,7 @@ class rcube_smtp
         // IDNA Support
         $smtp_host = rcube_utils::idn_to_ascii($smtp_host);
 
-        $this->conn = new Net_SMTP($smtp_host, $smtp_port, $helo_host, false, 0, $CONFIG['smtp_conn_options'],
+        $this->conn = new \Net_SMTP($smtp_host, $smtp_port, $helo_host, false, 0, $CONFIG['smtp_conn_options'],
             $CONFIG['gssapi_context'], $CONFIG['gssapi_cn']);
 
         if ($rcube->config->get('smtp_debug')) {
@@ -436,7 +436,7 @@ class rcube_smtp
                 $from = $addresses[0] ?? '';
 
                 // Reject envelope From: addresses with spaces.
-                if (strpos($from, ' ') !== false) {
+                if (str_contains($from, ' ')) {
                     return false;
                 }
 

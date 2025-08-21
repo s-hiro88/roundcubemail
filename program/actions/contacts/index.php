@@ -249,7 +249,7 @@ class rcmail_action_contacts_index extends rcmail_action
      *
      * @param array $args Arguments from the previous step(s)
      */
-    #[Override]
+    #[\Override]
     public function run($args = [])
     {
         $rcmail = rcmail::get_instance();
@@ -578,7 +578,7 @@ class rcmail_action_contacts_index extends rcmail_action
             );
 
             // append collapse/expand toggle and open a new <ul>
-            $is_collapsed = strpos($rcmail->config->get('collapsed_abooks', ''), '&' . rawurlencode($args['source']) . '&') !== false;
+            $is_collapsed = str_contains($rcmail->config->get('collapsed_abooks', ''), '&' . rawurlencode($args['source']) . '&');
             $args['out'] .= html::div('treetoggle ' . ($is_collapsed ? 'collapsed' : 'expanded'), '&nbsp;');
 
             foreach ($groups as $group) {
@@ -816,7 +816,7 @@ class rcmail_action_contacts_index extends rcmail_action
 
         if (!empty($attrib['deleteicon'])) {
             $del_button = html::img([
-                'src' => $rcmail->output->get_skin_file($attrib['deleteicon']),
+                'src' => $rcmail->output->asset_url($attrib['deleteicon'], true),
                 'alt' => $rcmail->gettext('delete'),
             ]);
         } else {
@@ -835,7 +835,7 @@ class rcmail_action_contacts_index extends rcmail_action
                 // re-order subtypes, so 'work' is before 'home'
                 if ($business_mode) {
                     $work_opts = array_filter($prop['subtypes'], static function ($var) {
-                        return strpos($var, 'work') !== false;
+                        return str_contains($var, 'work');
                     });
                     if (!empty($work_opts)) {
                         $coltypes[$col]['subtypes'] = $prop['subtypes'] = array_merge(

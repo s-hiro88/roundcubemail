@@ -22,7 +22,7 @@ class rcmail_action_mail_compose extends rcmail_action_mail_index
     protected static $COMPOSE_ID;
     protected static $COMPOSE;
 
-    /** @var rcube_message|stdClass|null Mail message */
+    /** @var rcube_message|\stdClass|null Mail message */
     protected static $MESSAGE;
     protected static $MESSAGE_BODY;
     protected static $CID_MAP = [];
@@ -34,7 +34,7 @@ class rcmail_action_mail_compose extends rcmail_action_mail_index
      *
      * @param array $args Arguments from the previous step(s)
      */
-    #[Override]
+    #[\Override]
     public function run($args = [])
     {
         $rcmail = rcmail::get_instance();
@@ -294,7 +294,7 @@ class rcmail_action_mail_compose extends rcmail_action_mail_index
                 self::$COMPOSE['references'] = self::$MESSAGE->headers->references;
             }
         } else {
-            self::$MESSAGE = new stdClass();
+            self::$MESSAGE = new \stdClass();
 
             // apply mailto: URL parameters
             if (!empty(self::$COMPOSE['param']['in-reply-to'])) {
@@ -393,7 +393,7 @@ class rcmail_action_mail_compose extends rcmail_action_mail_index
 
         // clean HTML message body which can be submitted by URL
         if (!empty($COMPOSE['param']['body'])) {
-            if ($COMPOSE['param']['html'] = strpos($COMPOSE['param']['body'], '<') !== false) {
+            if ($COMPOSE['param']['html'] = str_contains($COMPOSE['param']['body'], '<')) {
                 $wash_params = ['safe' => false];
                 $COMPOSE['param']['body'] = self::prepare_html_body($COMPOSE['param']['body'], $wash_params);
             }
@@ -714,7 +714,7 @@ class rcmail_action_mail_compose extends rcmail_action_mail_index
         $rcmail = rcmail::get_instance();
 
         // register this part as pgp encrypted
-        if (strpos($body, '-----BEGIN PGP MESSAGE-----') !== false) {
+        if (str_contains($body, '-----BEGIN PGP MESSAGE-----')) {
             self::$MESSAGE->pgp_mime = true;
             $rcmail->output->set_env('pgp_mime_message', [
                 '_mbox' => $rcmail->storage->get_folder(),
@@ -1100,7 +1100,7 @@ class rcmail_action_mail_compose extends rcmail_action_mail_index
 
                     $idx = $part->content_id ? ('cid:' . $part->content_id) : $part->content_location ?? null;
 
-                    if ($idx && isset(self::$CID_MAP[$idx]) && strpos($message_body, self::$CID_MAP[$idx]) !== false) {
+                    if ($idx && isset(self::$CID_MAP[$idx]) && str_contains($message_body, self::$CID_MAP[$idx])) {
                         $replace = self::$CID_MAP[$idx];
                     } else {
                         continue;

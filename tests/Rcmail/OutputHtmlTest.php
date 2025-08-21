@@ -48,10 +48,6 @@ class OutputHtmlTest extends TestCase
         $set_template = $reflection->getProperty('template_name');
         $get_template_logo = $reflection->getMethod('get_template_logo');
 
-        $set_skin->setAccessible(true);
-        $set_template->setAccessible(true);
-        $get_template_logo->setAccessible(true);
-
         $set_skin->setValue($output, 'elastic');
 
         $rcmail->config->set('skin_logo', 'img00');
@@ -426,7 +422,7 @@ class OutputHtmlTest extends TestCase
 
         $result = $output->charset_selector([]);
 
-        $this->assertTrue(strpos($result, '<select name="_charset">') === 0);
-        $this->assertTrue(strpos($result, '<option value="UTF-8" selected="selected">UTF-8 (Unicode)</option>') !== false);
+        $this->assertTrue(str_starts_with($result, '<select name="_charset">'));
+        $this->assertTrue(str_contains($result, '<option value="UTF-8" selected="selected">UTF-8 (Unicode)</option>'));
     }
 }
