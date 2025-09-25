@@ -69,7 +69,7 @@ roundcubemail-git: buildtools
 	(cd roundcubemail-git; find . -name '.gitignore' | xargs rm -f)
 	(cd roundcubemail-git; find . -name '.travis.yml' | xargs rm -f)
 	(cd roundcubemail-git; rm -rf tests plugins/*/tests .git* .tx* .ci* .editorconfig* index-test.php Dockerfile Makefile package.json package-lock.json node_modules)
-	(cd roundcubemail-git; rm -f .eslintrc.js .php-cs-fixer.dist.php  phpstan.neon.dist CODE_OF_CONDUCT.md SOCIAL_WORK_GUIDELINES.md)
+	(cd roundcubemail-git; rm -f .eslintrc.js .php-cs-fixer.dist.php phpstan.neon.dist)
 	(cd roundcubemail-git; $(SEDI) 's/1.7-git/$(VERSION)/' program/include/iniset.php program/lib/Roundcube/bootstrap.php)
 	(cd roundcubemail-git; $(SEDI) 's/# Unreleased/# Release $(VERSION)'/ CHANGELOG.md)
 
@@ -94,3 +94,21 @@ clean-untracked-minified:
 
 css-elastic: npm-install
 	cd skins/elastic && make css
+
+git-tag:
+	git tag --sign -m "Release version $(VERSION)" $(VERSION)
+
+git-tag-push:
+	@read -p 'Push the git tag "$(VERSION)" to origin? [yN] ' ;\
+   	if test "$$REPLY" = 'y'; then \
+        echo git push origin tag $(VERSION) ;\
+    fi; \
+
+edit-changelog:
+	$(EDITOR) CHANGELOG.md
+	git commit -m "Version $(VERSION)" CHANGELOG.md
+
+downloads-json-data:
+	@echo "\nRun this command in the directory of your cloned copy of 'https://github.com/roundcube/roundcube.github.com/'\nto generate the data for the file 'releases.json':\n./_bin/generate-downloads-json-data.php $(PWD) $(VERSION)\n"
+
+release: edit-changelog git-tag all sign verify downloads-json-data git-tag-push
