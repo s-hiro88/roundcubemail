@@ -15,7 +15,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ["8.1", "8.3", "8.5"]
+        # Use minimum and maximum supported PHP version here
+        php: ["8.1", "8.5"]
 
     name: Linux / PHP ${{ matrix.php }}
 
@@ -64,7 +65,7 @@ jobs:
         run: echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
       - name: Install Aspell
-        run: sudo apt-get -y install aspell aspell-en aspell-de
+        run: sudo apt-get -y update && sudo apt-get -y install --no-install-recommends aspell aspell-en aspell-de
 
       - name: Execute tests
         if: ${{ matrix.php != '8.5' }}
@@ -84,5 +85,13 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
-          name: screenshots
+          name: screenshots-php${{ matrix.php }}
           path: tests/Browser/screenshots
+
+      - name: Upload browser console as artifacts
+        # Upload console messages if the test suite failed.
+        if: failure()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: console-php${{ matrix.php }}
+          path: tests/Browser/console

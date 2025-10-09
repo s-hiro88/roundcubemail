@@ -2409,6 +2409,7 @@ function rcube_webmail() {
             size: cols.size,
             date: cols.date,
             flags: flags.extra_flags, // flags from plugins
+            folder: cols.folder,
         });
 
         var c, n, col, html, css_class, label, status_class = '', status_label = '', tree = '', expando = '',
@@ -2595,6 +2596,10 @@ function rcube_webmail() {
         domrow.className = row.className;
         if (row.style) {
             $.extend(domrow.style, row.style);
+        }
+
+        if (this.is_multifolder_listing()) {
+            domrow.title = rcmail.get_label('infolder').replace('$folder', message.folder);
         }
 
         $.each(this.env.widescreen_list_template, function () {
@@ -5832,6 +5837,8 @@ function rcube_webmail() {
                 this.clear_message_list();
             } else if (this.contact_list) {
                 this.list_contacts_clear();
+                // use env.last_source as env.source is overwritten by search action
+                url._scope = this.env.search_scope == 'base' ? this.env.last_source : null;
             }
 
             if (this.env.source) {
@@ -7489,6 +7496,9 @@ function rcube_webmail() {
                     if (this.name.match(/^_search/) && this.value != '') {
                         form[this.name] = this.value;
                         valid = true;
+                    } else if (this.name == '_scope' && this.value == 'base') {
+                        // use env.last_source as env.source is overwritten by search action
+                        form[this.name] = ref.env.last_source;
                     }
                 });
 
