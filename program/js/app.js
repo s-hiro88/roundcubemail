@@ -2599,7 +2599,7 @@ function rcube_webmail() {
         }
 
         if (this.is_multifolder_listing()) {
-            domrow.title = rcmail.get_label('infolder').replace('$folder', message.folder);
+            domrow.title = rcmail.get_label('infolder', null, { folder: message.folder });
         }
 
         $.each(this.env.widescreen_list_template, function () {
@@ -4237,7 +4237,7 @@ function rcube_webmail() {
             if (!isvalid && missing_keys.length) {
                 // display dialog with missing keys
                 ref.simple_dialog(
-                    ref.get_label('nopubkeyfor').replace('$email', missing_keys.join(', '))
+                    ref.get_label('nopubkeyfor', null, { email: missing_keys.join(', ') })
                         + '<p>' + ref.get_label('searchpubkeyservers') + '</p>',
                     'encryptedsendialog',
                     function () {
@@ -4392,7 +4392,7 @@ function rcube_webmail() {
             }
             // some keys could not be found
             if (missing_keys.length) {
-                ref.display_message(ref.get_label('nopubkeyfor').replace('$email', missing_keys.join(', ')), 'warning');
+                ref.display_message(ref.get_label('nopubkeyfor', null, { email: missing_keys.join(', ') }), 'warning');
             }
         }).fail(function () {
             console.error('Pubkey lookup failed with', arguments);
@@ -4490,7 +4490,7 @@ function rcube_webmail() {
                     } else {
                         var $key = keyid.substr(-8).toUpperCase();
                         btn.closest('.key').fadeOut();
-                        ref.display_message(ref.get_label('keyimportsuccess').replace('$key', $key), 'confirmation');
+                        ref.display_message(ref.get_label('keyimportsuccess', null, { key: $key }), 'confirmation');
                     }
                 }, function (err) {
                     console.log(err);
@@ -4537,7 +4537,7 @@ function rcube_webmail() {
                 var content = container.find('.identity-encryption-block').empty();
                 if (private_keys && private_keys.length) {
                     // show private key information
-                    $('<p>').text(ref.get_label('encryptionprivkeysinmailvelope').replace('$nr', private_keys.length)).appendTo(content);
+                    $('<p>').text(ref.get_label('encryptionprivkeysinmailvelope', null, { nr: private_keys.length })).appendTo(content);
                     var ul = $('<ul>').addClass('keylist').appendTo(content);
                     $.each(private_keys, function (i, key) {
                         $('<li>').appendTo(ul)
@@ -4602,7 +4602,7 @@ function rcube_webmail() {
                         generator.generate()
                             .then(function (result) {
                                 if (typeof result === 'string' && result.indexOf('BEGIN PGP') > 0) {
-                                    ref.display_message(ref.get_label('keypaircreatesuccess').replace('$identity', identity_email), 'confirmation');
+                                    ref.display_message(ref.get_label('keypaircreatesuccess', null, { identity: identity_email }), 'confirmation');
                                     // reset keygen view
                                     ref.mailvelope_identity_keygen();
                                 }
@@ -4664,7 +4664,7 @@ function rcube_webmail() {
 
         if (this.env.mdn_request_save) {
             buttons.unshift({
-                text: this.get_label('sendalwaysto').replace('$email', this.env.mdn_request_sender.mailto),
+                text: this.get_label('sendalwaysto', null, { email: this.env.mdn_request_sender.mailto }),
                 class: 'mainaction send',
                 click: function (e, ui, dialog) {
                     props.data._save = ref.env.mdn_request_save;
@@ -6223,7 +6223,7 @@ function rcube_webmail() {
 
         if (q.length && q.length < min) {
             if (!this.ksearch_info) {
-                this.ksearch_info = this.display_message(this.get_label('autocompletechars').replace('$min', min));
+                this.ksearch_info = this.display_message(this.get_label('autocompletechars', null, { min: min }));
             }
             return;
         }
@@ -6345,10 +6345,11 @@ function rcube_webmail() {
         if (results && (len = results.length)) {
             for (i = 0; i < len && maxlen > 0; i++) {
                 text = typeof results[i] === 'object' ? (results[i].display || results[i].name) : results[i];
+                fields = typeof results[i] === 'object' && results[i].fields ? results[i].fields : { name: text };
                 type = typeof results[i] === 'object' ? results[i].type : '';
                 id = i + this.env.contacts.length;
                 $('<li>').attr({ id: 'rcmkSearchItem' + id, role: 'option' })
-                    .html('<i class="icon"></i>' + this.quote_html(text.replace(new RegExp('(' + RegExp.escape(value) + ')', 'ig'), '##$1%%')).replace(/##([^%]+)%%/g, '<b>$1</b>'))
+                    .html(this.ksearch_results_display(fields, value))
                     .addClass(type || '')
                     .appendTo(ul)
                     .mouseover(function () {
@@ -6382,6 +6383,24 @@ function rcube_webmail() {
         if (this.ksearch_data.id == reqid) {
             this.ksearch_data.num--;
         }
+    };
+
+    this.ksearch_results_display = function (fields, search_term) {
+        line = "<i class='icon'></i>{name} &lt;{email}&gt;";
+
+        $.each(fields, function (key, data) {
+            line = line.replace('{' + key + '}', data ? ref.ksearch_results_highlight(data, search_term) : '');
+        });
+        line = line.replace(/\{[a-z]+\}/ug, '');
+        line = line.replace(/\s*&lt;&gt;/ug, '');
+        line = line.replace(/\s+/ug, ' ');
+        line = line.trim();
+
+        return line;
+    };
+
+    this.ksearch_results_highlight = function (haystack, needle) {
+        return this.quote_html(haystack.replace(new RegExp('(' + RegExp.escape(needle) + ')', 'ig'), '##$1%%')).replace(/##([^%]+)%%/g, '<b>$1</b>');
     };
 
     // Getter for input value
