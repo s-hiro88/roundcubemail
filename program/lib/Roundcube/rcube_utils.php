@@ -765,23 +765,26 @@ class rcube_utils
      */
     public static function https_check($port = null, $use_https = true)
     {
-        if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) != 'off') {
-            return true;
-        }
-
-        if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])
-            && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https'
-            && self::check_proxy_whitelist_ip()
-        ) {
-            return true;
-        }
-
-        if ($port && isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == $port) {
-            return true;
-        }
-
         if ($use_https && rcube::get_instance()->config->get('use_https')) {
             return true;
+        }
+
+        if (!empty($_SERVER['HTTPS'])) {
+            return strtolower($_SERVER['HTTPS']) != 'off';
+        }
+
+        if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && self::check_proxy_whitelist_ip()) {
+            return strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https';
+        }
+
+        if ($port) {
+            if (!empty($_SERVER['HTTP_X_FORWARDED_PORT']) && self::check_proxy_whitelist_ip()) {
+                return $_SERVER['HTTP_X_FORWARDED_PORT'] == $port;
+            }
+
+            if (!empty($_SERVER['SERVER_PORT'])) {
+                return $_SERVER['SERVER_PORT'] == $port;
+            }
         }
 
         return false;
@@ -792,7 +795,8 @@ class rcube_utils
      */
     public static function check_proxy_whitelist_ip()
     {
-        return in_array($_SERVER['REMOTE_ADDR'], (array) rcube::get_instance()->config->get('proxy_whitelist', []));
+        return isset($_SERVER['REMOTE_ADDR'])
+            && in_array($_SERVER['REMOTE_ADDR'], (array) rcube::get_instance()->config->get('proxy_whitelist', []));
     }
 
     /**
@@ -1516,8 +1520,13 @@ class rcube_utils
      */
     public static function resolve_url($url)
     {
-        // prepend protocol://hostname:port
-        if (!preg_match('|^https?://|', $url)) {
+        if (preg_match('|^https?://|', $url)) {
+            return $url;
+        }
+
+        if ($request_url = rcube::get_instance()->config->get('request_url')) {
+            $request_url = str_replace('%n', $_SERVER['SERVER_NAME'] ?? '', $request_url);
+        } else {
             $schema = 'http';
             $default_port = 80;
 
@@ -1526,18 +1535,29 @@ class rcube_utils
                 $default_port = 443;
             }
 
-            $host = $_SERVER['HTTP_HOST'] ?? '';
-            $port = $_SERVER['SERVER_PORT'] ?? 0;
-
-            $prefix = $schema . '://' . preg_replace('/:\d+$/', '', $host);
-            if ($port && $port != $default_port && $port != 80) {
-                $prefix .= ':' . $port;
+            if (!empty($_SERVER['HTTP_X_FORWARDED_HOST']) && self::check_proxy_whitelist_ip()) {
+                $host = $_SERVER['HTTP_X_FORWARDED_HOST'];
+            } else {
+                $host = $_SERVER['HTTP_HOST'] ?? '';
             }
 
-            $url = $prefix . ($url[0] == '/' ? '' : '/') . $url;
+            $port = parse_url($host, \PHP_URL_PORT);
+
+            if (empty($port) && !empty($_SERVER['HTTP_X_FORWARDED_PORT']) && self::check_proxy_whitelist_ip()) {
+                $port = (int) $_SERVER['HTTP_X_FORWARDED_PORT'];
+            }
+
+            if (empty($port) && !empty($_SERVER['SERVER_PORT'])) {
+                $port = (int) $_SERVER['SERVER_PORT'];
+            }
+
+            $request_url = $schema . '://' . preg_replace('/:\d+$/', '', $host);
+            if ($port && $port != $default_port && $port != 80) {
+                $request_url .= ':' . $port;
+            }
         }
 
-        return $url;
+        return rtrim($request_url, '/') . '/' . ltrim($url, '/');
     }
 
     /**
