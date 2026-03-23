@@ -1,5 +1,7 @@
 <?php
 
+use GuzzleHttp\Cookie\FileCookieJar;
+
 /*
  +-----------------------------------------------------------------------+
  | This file is part of the Roundcube Webmail client                     |
@@ -81,6 +83,13 @@ require_once __DIR__ . '/../lib/Roundcube/bootstrap.php';
 // register autoloader for rcmail app classes
 spl_autoload_register('rcmail_autoload');
 
+// disable use of dangerous dependencies
+spl_autoload_register(static function ($classname) {
+    if ($classname === FileCookieJar::class) {
+        throw new \Exception("{$classname} is forbidden for security reasons.");
+    }
+}, true, true);
+
 /**
  * PHP5 autoloader routine for dynamic class loading
  */
@@ -121,7 +130,7 @@ function rcmail_fatal_error()
 {
     if (\PHP_SAPI === 'cli') {
         echo "Fatal error: Please check the Roundcube error log and/or server error logs for more information.\n";
-    } elseif (!empty($_REQUEST['_remote'])) {
+    } elseif (rcube_utils::request_header('X-Roundcube-Request')) {
         // Ajax request from UI
         header('Content-Type: application/json; charset=UTF-8');
         echo json_encode(['code' => 500, 'message' => 'Internal Server Error']);
