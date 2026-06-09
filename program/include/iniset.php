@@ -27,7 +27,7 @@ if (\PHP_VERSION_ID < 80100) {
 }
 
 // application constants
-define('RCMAIL_VERSION', '1.7-git');
+define('RCMAIL_VERSION', '1.8-git');
 define('RCMAIL_START', microtime(true));
 
 if (!defined('INSTALL_PATH')) {
@@ -67,16 +67,6 @@ if (@file_exists(INSTALL_PATH . 'vendor/autoload.php')) {
     require INSTALL_PATH . 'vendor/autoload.php';
 }
 
-// translate PATH_INFO to _task and _action GET parameters
-if (!empty($_SERVER['PATH_INFO']) && preg_match('!^/([a-z]+)/([a-z]+)$!', $_SERVER['PATH_INFO'], $m)) {
-    if (!isset($_GET['_task'])) {
-        $_GET['_task'] = $m[1];
-    }
-    if (!isset($_GET['_action'])) {
-        $_GET['_action'] = $m[2];
-    }
-}
-
 // include Roundcube Framework
 require_once __DIR__ . '/../lib/Roundcube/bootstrap.php';
 
@@ -89,6 +79,16 @@ spl_autoload_register(static function ($classname) {
         throw new \Exception("{$classname} is forbidden for security reasons.");
     }
 }, true, true);
+
+// translate PATH_INFO to _task and _action GET parameters
+if (($path = rcmail_output::path_info()) && preg_match('!^([a-z]+)/([a-z]+)$!', $path, $m)) {
+    if (!isset($_GET['_task'])) {
+        $_GET['_task'] = $m[1];
+    }
+    if (!isset($_GET['_action'])) {
+        $_GET['_action'] = $m[2];
+    }
+}
 
 /**
  * PHP5 autoloader routine for dynamic class loading

@@ -84,16 +84,6 @@ class rcmail_sendmail
     }
 
     /**
-     * Object destructor to cleanup temporary files
-     */
-    public function __destruct()
-    {
-        foreach ($this->temp_files as $file) {
-            @unlink($file);
-        }
-    }
-
-    /**
      * Collect input data for message headers
      *
      * @return array Message headers
@@ -294,7 +284,7 @@ class rcmail_sendmail
         // choose encodings for plain/text body and message headers
         if (preg_match('/ISO-2022/i', $text_charset)) {
             $head_encoding = 'base64'; // RFC1468
-        } elseif (preg_match('/[^\x00-\x7F]/', $message->getTXTBody() . $message->getHTMLBody())) {
+        } elseif (preg_match('/[^\x00-\x7F]/', $message->getTXTBody())) {
             $transfer_encoding = $this->rcmail->config->get('force_7bit') ? 'quoted-printable' : '8bit';
         } elseif ($this->options['charset'] == 'UTF-8') {
             $text_charset = 'US-ASCII';
@@ -305,8 +295,9 @@ class rcmail_sendmail
         }
 
         // encoding settings for mail composing
+        // Note: We don't use 8bit for HTML parts because it would not break lines (#10198)
         $message->setParam('text_encoding', $transfer_encoding);
-        $message->setParam('html_encoding', $transfer_encoding);
+        $message->setParam('html_encoding', 'quoted-printable');
         $message->setParam('head_encoding', $head_encoding);
         $message->setParam('head_charset', $this->options['charset']);
         $message->setParam('html_charset', $this->options['charset']);
@@ -467,6 +458,7 @@ class rcmail_sendmail
         // @phpstan-ignore-next-line
         if ($mailbody_file) {
             $this->temp_files[$message->headers()['Message-ID']] = $mailbody_file;
+            $this->rcmail->add_shutdown_function(static function () use ($mailbody_file) { @unlink($mailbody_file); });
         }
 
         // save message sent time
@@ -548,6 +540,7 @@ class rcmail_sendmail
 
                     if (!is_a($msg, 'PEAR_Error')) {
                         $this->temp_files[$msg_id] = $msg_file;
+                        $this->rcmail->add_shutdown_function(static function () use ($msg_file) { @unlink($msg_file); });
                     }
                 }
 

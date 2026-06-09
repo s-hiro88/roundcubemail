@@ -127,7 +127,7 @@ class rcube_imap extends rcube_storage
                 'version' => RCUBE_VERSION,
                 'php' => \PHP_VERSION,
                 'os' => \PHP_OS,
-                'command' => $_SERVER['REQUEST_URI'] ?? '',
+                'command' => abbreviate_string($_SERVER['REQUEST_URI'] ?? '', 512, '...', true),
             ];
         }
 
@@ -2316,7 +2316,7 @@ class rcube_imap extends rcube_storage
     {
         while (is_array($structure)) {
             if (isset($structure[2]) && is_array($structure[2]) && $structure[2][0] == 'charset') {
-                return $structure[2][1];
+                return $structure[2][1] ?? null;
             }
 
             $structure = $structure[0];
@@ -2417,8 +2417,7 @@ class rcube_imap extends rcube_storage
             return false;
         }
 
-        return $this->conn->handlePartBody($this->folder, $uid,
-            true, $part, null, false, $fp);
+        return $this->conn->handlePartBody($this->folder, $uid, true, $part, null, false, $fp);
     }
 
     /**

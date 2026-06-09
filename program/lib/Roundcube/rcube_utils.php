@@ -1,6 +1,7 @@
 <?php
 
 use IPLib\Factory;
+use IPLib\ParseStringFlag;
 
 /*
  +-----------------------------------------------------------------------+
@@ -428,10 +429,25 @@ class rcube_utils
         $host = parse_url($url, \PHP_URL_HOST);
 
         if (is_string($host)) {
+            $options = ParseStringFlag::IPV4_MAYBE_NON_DECIMAL
+                | ParseStringFlag::IPV4SUBNET_MAYBE_COMPACT
+                | ParseStringFlag::IPV4ADDRESS_MAYBE_NON_QUAD_DOTTED
+                | ParseStringFlag::MAY_INCLUDE_ZONEID;
+
+            $host = trim($host, '[]');
+
+            // IPLib does not seem to work with IPv6 syntax for IPv4 addresses
+            $host = preg_replace('/^::ffff:/i', '', $host);
+
+            if (preg_match('/([0-9a-f.-]+)\.nip\.io$/i', $host, $matches)) {
+                $host = trim($matches[1], '-.');
+            }
+
             // TODO: This is pretty fast, but a single message can contain multiple links
             // to the same target, maybe we should do some in-memory caching.
-            if ($address = Factory::parseAddressString($host = trim($host, '[]'))) {
+            if ($address = Factory::parseAddressString($host, $options)) {
                 $nets = [
+                    '0.0.0.0',
                     '127.0.0.0/8',    // loopback
                     '10.0.0.0/8',     // RFC1918
                     '172.16.0.0/12',  // RFC1918
@@ -441,18 +457,39 @@ class rcube_utils
                     'fc00::/7',
                 ];
 
-                foreach ($nets as $net) {
-                    $range = Factory::parseRangeString($net);
-                    if ($range->contains($address)) {
-                        return true;
-                    }
-                }
-
-                return false;
+                return self::is_ip_in_range($address, $nets);
             }
 
             // FIXME: Should we accept any non-fqdn hostnames?
-            return (bool) preg_match('/^localhost(\.localdomain)?$/i', $host);
+            $host = strtolower($host);
+            return $host == 'metadata.google.internal' || preg_match('/^localhost(\.localdomain)?\.?$/', $host);
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if an IP address matches an entry in the given whitelist.
+     * Entries may be exact IP addresses or CIDR ranges (e.g. '10.0.0.0/8', 'fc00::/7').
+     *
+     * @param string $ip        IP address to check
+     * @param array  $whitelist List of IPs or CIDR ranges
+     */
+    private static function is_ip_in_range(string $ip, array $whitelist): bool
+    {
+        if (empty($whitelist)) {
+            return false;
+        }
+
+        $address = Factory::parseAddressString($ip);
+
+        foreach ($whitelist as $entry) {
+            if ($entry === $ip) {
+                return true;
+            }
+            if ($address && ($range = Factory::parseRangeString($entry)) && $range->contains($address)) {
+                return true;
+            }
         }
 
         return false;
@@ -604,10 +641,17 @@ class rcube_utils
             } else {
                 $value = '';
                 foreach (self::explode_css_property_block($rule[1]) as $val) {
-                    if ($url_callback && preg_match('/^url\s*\(/i', $val)) {
-                        if (preg_match('/^url\s*\(\s*[\'"]?([^\'"\)]*)[\'"]?\s*\)/iu', $val, $match)) {
-                            if ($url = $url_callback($match[1])) {
-                                $value .= ' url(' . $url . ')';
+                    if ($url_callback && preg_match('/\burl\s*\(/i', $val)) {
+                        if (preg_match_all('/(\b)url\s*\(\s*[\'"]?([^\'"\)]*)[\'"]?\s*\)/iu', $val, $matches)) {
+                            foreach ($matches[2] as $idx => $url) {
+                                if ($url = $url_callback($url)) {
+                                    $val = str_replace($matches[0][$idx], $matches[1][$idx] . "url({$url})", $val);
+                                } else {
+                                    $val = '';
+                                }
+                            }
+                            if (strlen($val)) {
+                                $value .= ' ' . $val;
                             }
                         }
                     } elseif (preg_match('/;.+/', $val)) {
@@ -865,7 +909,7 @@ class rcube_utils
     public static function check_proxy_whitelist_ip()
     {
         return isset($_SERVER['REMOTE_ADDR'])
-            && in_array($_SERVER['REMOTE_ADDR'], (array) rcube::get_instance()->config->get('proxy_whitelist', []));
+            && self::is_ip_in_range($_SERVER['REMOTE_ADDR'], (array) rcube::get_instance()->config->get('proxy_whitelist', []));
     }
 
     /**
@@ -1032,11 +1076,11 @@ class rcube_utils
         // Check if any of the headers are set first to improve performance
         if (!empty($_SERVER['HTTP_X_FORWARDED_FOR']) || !empty($_SERVER['HTTP_X_REAL_IP'])) {
             $proxy_whitelist = (array) rcube::get_instance()->config->get('proxy_whitelist', []);
-            if (in_array($_SERVER['REMOTE_ADDR'], $proxy_whitelist)) {
+            if (self::is_ip_in_range($_SERVER['REMOTE_ADDR'], $proxy_whitelist)) {
                 if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
                     foreach (array_reverse(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])) as $forwarded_ip) {
                         $forwarded_ip = trim($forwarded_ip);
-                        if (!in_array($forwarded_ip, $proxy_whitelist)) {
+                        if (!self::is_ip_in_range($forwarded_ip, $proxy_whitelist)) {
                             return $forwarded_ip;
                         }
                     }
@@ -1156,7 +1200,7 @@ class rcube_utils
      * Date parsing function that turns the given value into a DateTime object
      *
      * @param \DateTime|string $date     A date
-     * @param \DateTimeZone    $timezone Timezone to use for DateTime object
+     * @param \DateTimeZone    $timezone A timezone to use for the result, if not included in the input
      *
      * @return \DateTime|false DateTime object or False on failure
      */
@@ -1182,10 +1226,7 @@ class rcube_utils
         // try our advanced strtotime() method
         if (!$dt && ($timestamp = self::strtotime($date, $timezone))) {
             try {
-                $dt = new \DateTime('@' . $timestamp);
-                if ($timezone) {
-                    $dt->setTimezone($timezone);
-                }
+                $dt = $timezone ? new \DateTime('@' . $timestamp, $timezone) : new \DateTime('@' . $timestamp);
             } catch (\Exception $e) {
                 // ignore
             }

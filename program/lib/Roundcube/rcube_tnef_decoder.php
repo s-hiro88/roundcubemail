@@ -197,15 +197,15 @@ class rcube_tnef_decoder
      * @param string &$data The data string
      * @param int    $bytes how many bytes to retrieve
      *
-     * @return string Extracted data
+     * @return ?string Extracted data
      */
     protected function _getx(&$data, $bytes)
     {
         $value = null;
 
-        if (strlen($data) >= $bytes) {
+        if (strlen($data)) {
             $value = substr($data, 0, $bytes);
-            $data = substr($data, $bytes);
+            $data = substr($data, strlen($value));
         }
 
         return $value;
@@ -234,6 +234,8 @@ class rcube_tnef_decoder
             }
 
             $data = substr($data, $bytes);
+        } else {
+            $data = '';
         }
 
         return $value;
@@ -244,7 +246,7 @@ class rcube_tnef_decoder
      *
      * @param string &$data The data string
      *
-     * @return string Extracted data
+     * @return ?string Extracted data
      */
     protected function _decodeAttribute(&$data)
     {
@@ -343,6 +345,9 @@ class rcube_tnef_decoder
 
                         // Read and truncate to length.
                         $value = $this->_getx($data, $datalen);
+                        if ($value === null) {
+                            break;
+                        }
                     }
 
                     if ($attr_type == self::MAPI_UNICODE_STRING) {
