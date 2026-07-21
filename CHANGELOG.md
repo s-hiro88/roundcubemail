@@ -5,6 +5,13 @@ This file includes only changes we consider noteworthy for users, admins and plu
 ## Unreleased
 
 - OAuth: Validate JWT token signature (#10210)
+- OAuth: Don't log an error when a refreshed token's TTL is below refresh_interval (#10213)
+- Fix out-of-bounds string reads on truncated compressed-RTF in the TNEF decoder (#10269)
+- Fix bug where searching in example_addressbook plugin was reporting zero results despite matches (#9022)
+- Fix vCard import mis-detecting folded continuation lines as BEGIN/END:VCARD (#9593)
+- Fix bug where the php session driver practically disabled session.lazy_write optimization (#9885, #10248)
+- Fix bug where dates could get displayed shifted back one day in some places (#9403)
+- Fix regression where it wasn't possible to hide a skin logo image anymore (#10254)
 
 ## Release 1.7.2
 
