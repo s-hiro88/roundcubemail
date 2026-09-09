@@ -4,6 +4,8 @@ namespace Roundcube\Tests\Framework;
 
 use PHPUnit\Framework\TestCase;
 
+use function Roundcube\Tests\invokeMethod;
+
 /**
  * Test class to test rcube_tnef_decoder class
  */
@@ -88,8 +90,6 @@ class TnefDecoderTest extends TestCase
     {
         $tnef = new \rcube_tnef_decoder();
 
-        $method = new \ReflectionMethod('rcube_tnef_decoder', '_decompressRTF');
-
         // First byte is a flags byte with bit 0 set, so the back-reference
         // branch is taken. The branch needs two more bytes (offset + length),
         // but the payload is truncated right after the flags byte. On
@@ -108,12 +108,29 @@ class TnefDecoderTest extends TestCase
         try {
             foreach ($truncated as $data) {
                 // A large $size forces the loop to keep consuming input.
-                $result = $method->invoke($tnef, $data, 1000);
+                $result = invokeMethod($tnef, '_decompressRTF', [$data, 1000]);
                 $this->assertIsString($result);
             }
         } finally {
             restore_error_handler();
         }
+    }
+
+    /**
+     * Test decoding an attachment with malformed mimetype
+     */
+    public function test_decompress_mimetype()
+    {
+        $body = base64_decode('eJ8+IgEAAQaQCAAEAAAAAAABAAEAAgKQBgAAAAAAAAACBZAGAHwAAAADAAAAHgAHNwEAAAAHAAAA'
+            . 'cG9jLmRhdAAeAA43AQAAADcAAABpbWFnZSZfcGFydD0zJl9ub2NoZWNrPTEmX2Rvd25sb2FkPTEj'
+            . 'cHJvYmUvb2N0ZXQtc3RyZWFtAB4AEjcBAAAAFAAAAHJjLXBvYy1jaWQtMDAwMDAwMDAxsB0CD4AG'
+            . 'AAsAAABwbGFjZWhvbGRlcoME');
+
+        $tnef = new \rcube_tnef_decoder();
+        $result = $tnef->decompress($body);
+
+        $this->assertSame('application', $result['attachments'][0]['type']);
+        $this->assertSame('octet-stream', $result['attachments'][0]['subtype']);
     }
 
     /**

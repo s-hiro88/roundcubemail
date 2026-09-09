@@ -734,7 +734,7 @@ class rcmail_action_mail_compose extends rcmail_action_mail_index
             if ($part->ctype_secondary == 'html') {
                 $body = self::prepare_html_body($body);
             } elseif ($part->ctype_secondary == 'enriched') {
-                $body = rcube_enriched::to_html($body);
+                $body = self::prepare_html_body(rcube_enriched::to_html($body));
             } elseif ($part->ctype_secondary === 'markdown' || $part->ctype_secondary === 'x-markdown') {
                 $body = rcube_markdown::to_html($body);
             } else {
@@ -1098,7 +1098,7 @@ class rcmail_action_mail_compose extends rcmail_action_mail_index
                         continue;
                     }
 
-                    $idx = $part->content_id ? ('cid:' . $part->content_id) : $part->content_location ?? null;
+                    $idx = $part->content_id ? ('cid:' . $part->content_id) : $part->content_location;
 
                     if ($idx && isset(self::$CID_MAP[$idx]) && str_contains($message_body, self::$CID_MAP[$idx])) {
                         $replace = self::$CID_MAP[$idx];
