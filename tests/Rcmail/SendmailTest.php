@@ -66,7 +66,42 @@ class SendmailTest extends ActionTestCase
      */
     public function test_header_received()
     {
-        $this->markTestIncomplete();
+        $_SERVER['REMOTE_ADDR'] = '1.2.3.4';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.5';
+        $_SERVER['HTTP_X_REAL_IP'] = '';
+        $_SERVER['SERVER_PROTOCOL'] = 'HTTP/1.0';
+
+        $sendmail = new \rcmail_sendmail();
+        $config = \rcmail::get_instance()->config;
+
+        $config->set('http_received_header', false);
+        $config->set('http_received_header_encrypt', false);
+        $config->set('proxy_whitelist', []);
+
+        // Disabled option
+        $header = $sendmail->header_received();
+        $this->assertNull($header);
+
+        // Enabled option
+        $config->set('http_received_header', true);
+        $this->assertStringStartsWith(
+            'from [1.2.3.4] by localhost with HTTP (HTTP/1.0 GET);',
+            $sendmail->header_received()
+        );
+
+        // With whitelisted proxy
+        $config->set('proxy_whitelist', ['1.0.0.0/8']);
+        $this->assertStringStartsWith(
+            "from [203.0.113.5] via [1.2.3.4] by localhost with HTTP (HTTP/1.0\r\n\tGET);",
+            $sendmail->header_received()
+        );
+
+        // Encrypted
+        $config->set('http_received_header_encrypt', true);
+        $this->assertMatchesRegularExpression(
+            '|^from [0-9a-zA-Z=/+]+ via [0-9a-zA-Z=/+]+ by\r\n\tlocalhost with HTTP|',
+            $sendmail->header_received()
+        );
     }
 
     /**
@@ -94,7 +129,25 @@ class SendmailTest extends ActionTestCase
      */
     public function test_extract_inline_images()
     {
-        $this->markTestIncomplete();
+        $message = new \Mail_mime("\r\n");
+        $message->setHTMLBody('<body></body>');
+        \rcmail_sendmail::extract_inline_images($message, 'test@test.com');
+        $this->assertSame('<body></body>', $message->getMessageBody());
+
+        $message = new \Mail_mime("\r\n");
+        $ctype = "test/test\r\nX-Inject:test";
+        $b64 = base64_encode(file_get_contents(__DIR__ . '/../src/logo.jpg'));
+        $message->setHTMLBody('<body><img title="" src="data:' . $ctype . ';base64,' . $b64 . '"></body>');
+        \rcmail_sendmail::extract_inline_images($message, 'test@test.com');
+
+        $body = $message->getMessageBody();
+        $this->assertStringContainsString('Content-Type: image/jpeg', $body);
+        $this->assertStringContainsString('Content-Disposition: inline', $body);
+        $this->assertStringContainsString('size=10549', $body);
+        $this->assertStringContainsString(substr($b64, 0, 32), $body);
+        $this->assertMatchesRegularExpression('/name=[a-f0-9]+\.jpeg/', $body);
+        $this->assertMatchesRegularExpression('/<img title=3D"" src=3D"cid:[a-f0-9]+@test\.com"/', $body);
+        $this->assertMatchesRegularExpression('/Content-ID: <[a-f0-9]+@test\.com>/', $body);
     }
 
     /**

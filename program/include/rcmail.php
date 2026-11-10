@@ -220,6 +220,9 @@ class rcmail extends rcube
      */
     public function action_handler()
     {
+        // CSRF prevention
+        $this->request_security_check();
+
         // we're ready, user is authenticated and the request is safe
         $plugin = $this->plugins->exec_hook('ready', ['task' => $this->task, 'action' => $this->action]);
 
@@ -235,11 +238,24 @@ class rcmail extends rcube
 
         $task = $this->action == 'save-pref' ? 'utils' : $this->task;
         $task = $task == 'addressbook' ? 'contacts' : $task;
-        $task_class = "rcmail_action_{$task}_index";
+
+        // check access to disabled actions
+        if ($this->is_action_disabled($task, $this->action ?: 'index')) {
+            self::raise_error(['code' => 404, 'message' => 'Action disabled'], true, true);
+        }
 
         // execute the action index handler
+        $task_class = "rcmail_action_{$task}_index";
         if (class_exists($task_class)) {
             $task_handler = new $task_class();
+
+            // check access to disabled actions (resolve an alias)
+            if ($this->action && !empty($task_handler::$aliases[$this->action])) {
+                if ($this->is_action_disabled($task, $task_handler::$aliases[$this->action])) {
+                    self::raise_error(['code' => 404, 'message' => 'Action disabled'], true, true);
+                }
+            }
+
             $task_handler->run();
         }
 
@@ -295,6 +311,17 @@ class rcmail extends rcube
         // if we arrive here, something went wrong
         $error = ['code' => 404, 'message' => 'Invalid request'];
         self::raise_error($error, true, true);
+    }
+
+    /**
+     * Check if the action is disabled
+     */
+    public function is_action_disabled(string $task, string $action)
+    {
+        $disabled_actions = (array) $this->config->get('disabled_actions');
+
+        return in_array($task . '.' . str_replace('_', '-', $action), $disabled_actions)
+            || in_array($task . '.' . str_replace('-', '_', $action), $disabled_actions);
     }
 
     /**
@@ -518,7 +545,7 @@ class rcmail extends rcube
             }
 
             if (!empty($additional)) {
-                ksort($additional, \SORT_LOCALE_STRING);
+                rcube_utils::ksort($additional);
                 $responses = array_merge(array_values($additional), $responses);
             }
         }
@@ -938,7 +965,7 @@ class rcmail extends rcube
     /**
      * Auto-select IMAP host based on the posted login information
      *
-     * @return string Selected IMAP host
+     * @return ?string Selected IMAP host
      */
     public function autoselect_host()
     {
@@ -973,9 +1000,7 @@ class rcmail extends rcube
                 $key = key($default_host);
                 $host = is_numeric($key) ? $default_host[$key] : $key;
             }
-        } elseif (empty($default_host)) {
-            $host = rcube_utils::get_input_string('_host', rcube_utils::INPUT_POST);
-        } else {
+        } elseif (!empty($default_host)) {
             $host = rcube_utils::parse_host($default_host);
         }
 
@@ -1629,17 +1654,16 @@ class rcmail extends rcube
 
         // define date format depending on current time
         if (!$format) {
-            $now = time();
-            $now_date = getdate($now);
-            $today_limit = mktime(0, 0, 0, $now_date['mon'], $now_date['mday'], $now_date['year']);
-            $week_limit = mktime(0, 0, 0, $now_date['mon'], $now_date['mday'] - 6, $now_date['year']);
+            $now = new \DateTimeImmutable('now', $date->getTimezone());
+            $today_limit = $now->setTime(0, 0)->getTimestamp();
+            $week_limit = $now->setTime(0, 0)->modify('-6 days')->getTimestamp();
             $pretty_date = $this->config->get('prettydate');
-            $timestamp = $date->format('U');
+            $timestamp = $date->getTimestamp();
 
-            if ($pretty_date && $timestamp > $today_limit && $timestamp <= $now) {
+            if ($pretty_date && $timestamp > $today_limit && $timestamp <= $now->getTimestamp()) {
                 $format = $this->config->get('date_today', $this->config->get('time_format', 'H:i'));
                 $today = true;
-            } elseif ($pretty_date && $timestamp > $week_limit && $timestamp <= $now) {
+            } elseif ($pretty_date && $timestamp > $week_limit && $timestamp <= $now->getTimestamp()) {
                 $format = $this->config->get('date_short', 'D H:i');
             } else {
                 $format = $this->config->get('date_long', 'Y-m-d H:i');

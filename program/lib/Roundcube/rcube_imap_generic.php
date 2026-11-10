@@ -2087,7 +2087,7 @@ class rcube_imap_generic
             if ($message_set === '' || $message_set === 'INVALID') {
                 return false;
             }
-        } elseif (empty($message_set)) {
+        } elseif (empty($message_set) || preg_match('/[^0-9:,*]/', (string) $message_set)) {
             return false;
         } elseif (strpos($message_set, ':')) {
             [$from_idx, $to_idx] = explode(':', $message_set);
@@ -2345,6 +2345,10 @@ class rcube_imap_generic
 
         if (!empty($this->flags[strtoupper($flag)])) {
             $flag = $this->flags[strtoupper($flag)];
+        }
+
+        if (preg_match('/[\x00-\x20\x7f(){"*%]/', $flag)) {
+            return false;
         }
 
         // if PERMANENTFLAGS is not specified all flags are allowed
@@ -2807,17 +2811,41 @@ class rcube_imap_generic
      */
     public function fetchMIMEHeaders($mailbox, $uid, $parts, $mime = true)
     {
+        if (preg_match('/[^0-9:,*]/', (string) $uid)) {
+            return false;
+        }
+
         if (!$this->select($mailbox)) {
             return false;
         }
 
         $parts = (array) $parts;
+
+        if (empty($parts)) {
+            return [];
+        }
+
+        // Split a long request: RFC 7162 (Section 4) recommends command lines of at most
+        // about 8192 octets, Exchange refuses a command over 10240 bytes by default.
+        // An item takes up to 20 bytes plus its part identifier.
+        $limit = max(1, intdiv(8000, 20 + max(array_map('strlen', $parts))));
+
+        if (count($parts) > $limit) {
+            $result = [];
+            foreach (array_chunk($parts, $limit) as $chunk) {
+                $result += $this->fetchMIMEHeaders($mailbox, $uid, $chunk, $mime) ?: [];
+            }
+
+            return $result;
+        }
+
         $key = $this->nextTag();
         $peeks = [];
         $type = $mime ? 'MIME' : 'HEADER';
 
         // format request
         foreach ($parts as $part) {
+            $part = preg_replace('/[\r\n]+/', ' ', (string) $part); // sanitize input
             $peeks[] = "BODY.PEEK[{$part}.{$type}]";
         }
 
@@ -2837,6 +2865,14 @@ class rcube_imap_generic
                 $line = ltrim(substr($line, strlen($m[0])));
                 while (preg_match('/^\s*BODY\[([0-9\.]+)\.' . $type . '\]/', $line, $matches)) {
                     $line = substr($line, strlen($matches[0]));
+
+                    // an empty (or missing) section can be NIL or "", followed by the next item
+                    if (preg_match('/^\s*(NIL|"")/i', $line, $empty)) {
+                        $result[$matches[1]] = '';
+                        $line = substr($line, strlen($empty[0]));
+                        continue;
+                    }
+
                     $result[$matches[1]] = trim($this->multLine($line));
                     $line = $this->readLine(1024);
                 }
@@ -2862,6 +2898,10 @@ class rcube_imap_generic
     public function handlePartBody($mailbox, $id, $is_uid = false, $part = '', $encoding = null, $print = null,
         $file = null, $formatted = false, $max_bytes = 0)
     {
+        if (preg_match('/[^0-9:,*]/', (string) $id)) {
+            return false;
+        }
+
         if (!$this->select($mailbox)) {
             return false;
         }
@@ -2871,6 +2911,7 @@ class rcube_imap_generic
         $result = false;
         $found = false;
         $mode = 0;
+        $part = preg_replace('/[\r\n]+/', ' ', (string) $part); // sanitize input
 
         do {
             if (!$initiated) {
@@ -2892,7 +2933,7 @@ class rcube_imap_generic
                 }
 
                 // Use BINARY extension when possible (and safe)
-                $binary = $binary && $mode && preg_match('/^[0-9.]+$/', (string) $part) && $this->hasCapability('BINARY');
+                $binary = $binary && $mode && preg_match('/^[0-9.]+$/', $part) && $this->hasCapability('BINARY');
                 $fetch_mode = $binary ? 'BINARY' : 'BODY';
                 $partial = $max_bytes ? sprintf('<0.%d>', $max_bytes) : '';
 
